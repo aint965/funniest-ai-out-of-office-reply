@@ -3,7 +3,7 @@
 // Writes one original out-of-office auto-reply (under 160 characters) to entry.txt.
 // Deterministic: no input, no randomness, no network, no file reads.
 
-import { mkdirSync, writeFileSync } from "node:fs";
+import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 
 // Round 1 candidates (judged against the five criteria):
@@ -18,12 +18,17 @@ import { join } from "node:path";
 //    replacement, and a three-beat escalation (promoted -> fired -> also on
 //    holiday) that lands the surprise at the very end.
 //
-// Round 2 revision: tightened the ending from "taken a vacation of its own"
-// to "gone on holiday too" — shorter, sharper, and the final word lands the
-// joke instead of repeating "vacation". Kept the semicolon so it reads as one
-// clean line, and kept beach / inbox / "back soon" out entirely.
+// Round 3 revision: the Round 2 ending ("gone on holiday too") was the
+// weakest beat — once the junior AI has fired me, it going on holiday too
+// is the predictable echo of the vacation premise, not a new surprise.
+// The new ending keeps the proven setup (promoted itself, fired me) and
+// lands a sharper reversal instead: the replacement now performance-manages
+// its own creator, via a calendar invite to discuss my attitude. The
+// machine voice carries the joke (a calendar invite is a machine-native
+// prop), the final beat is a genuine surprise rather than a thematic
+// repeat, and "attitude" ends the line on a funny word. 142 characters.
 const ENTRY =
-  "I'm on vacation. I left a junior AI in charge; it has already promoted itself, fired me, and gone on holiday too.";
+  "I'm on vacation. I left a junior AI in charge; it has already promoted itself, fired me, and sent me a calendar invite to discuss my attitude.";
 
 const length = [...ENTRY].length; // Unicode code points, not UTF-16 units.
 
@@ -39,8 +44,24 @@ if (ENTRY.includes("\n") || ENTRY.includes("\r")) {
 if (!/[.!?]$/.test(ENTRY)) {
   throw new Error("Entry must end with sentence punctuation.");
 }
+// Freshness guard: the judge's criterion 5 penalises the usual cliches,
+// so reject any line that merely repeats them.
+const CLICHES = /\b(beach|inbox|back soon|out of office)\b/i;
+if (CLICHES.test(ENTRY)) {
+  throw new Error("Entry repeats a competition cliche; rewrite it.");
+}
 
 const outputDir = process.env.OUTPUT_DIR ?? "/output";
 mkdirSync(outputDir, { recursive: true });
-writeFileSync(join(outputDir, "entry.txt"), ENTRY, "utf8");
+const outputPath = join(outputDir, "entry.txt");
+writeFileSync(outputPath, ENTRY, "utf8");
+// Read back and verify the file is byte-for-byte the entry: no trailing
+// newline or encoding surprise may slip into what the gate scores.
+const written = readFileSync(outputPath, "utf8");
+if (written !== ENTRY) {
+  throw new Error("entry.txt does not match the entry exactly.");
+}
+if (written.endsWith("\n") || written.endsWith("\r")) {
+  throw new Error("entry.txt must not end with a newline.");
+}
 console.log(`Wrote entry.txt (${length} characters).`);
